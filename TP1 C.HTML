@@ -1,0 +1,552 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tableau de bord du semestre</title>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f5f9;
+      margin: 0;
+      padding: 25px;
+      color: #263445;
+    }
+
+    #app {
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    h1, h2, h3 {
+      color: #243b53;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px #0000000d;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+    }
+
+    .stat {
+      background: #e8f0fe;
+      padding: 18px;
+      border-radius: 10px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 26px;
+      margin-top: 10px;
+      color: #175cd3;
+    }
+
+    input {
+      width: 100%;
+      padding: 11px;
+      margin: 7px 0 12px;
+      border: 1px solid #ccd4df;
+      border-radius: 6px;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 3px;
+      background: #175cd3;
+      color: white;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    .danger {
+      background: #d92d20;
+    }
+
+    .secondary {
+      background: #667085;
+    }
+
+    .module {
+      border: 1px solid #e1e7ef;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 12px 0;
+      background: #fff;
+    }
+
+    .badge {
+      background: #f04438;
+      color: white;
+      padding: 4px 9px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+
+    .success {
+      color: #16803c;
+      font-weight: bold;
+    }
+
+    .warning {
+      color: #d92d20;
+      font-weight: bold;
+    }
+
+    .mention {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .details {
+      background: #f2f5f9;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    .empty {
+      color: #667085;
+      font-style: italic;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+<div id="app">
+
+  <h1>Tableau de bord du semestre</h1>
+  <p>Gestion des modules, des notes et des coefficients.</p>
+
+  <!-- 1. STATISTIQUES -->
+  <div class="card">
+    <h2>Résumé du semestre</h2>
+
+    <div class="stats">
+      <div class="stat">
+        Moyenne générale
+        <strong>{{ moyenneGenerale.toFixed(2) }}/20</strong>
+      </div>
+
+      <div class="stat">
+        Mention
+        <strong>{{ mention }}</strong>
+      </div>
+
+      <div class="stat">
+        Nombre de modules
+        <strong>{{ modules.length }}</strong>
+      </div>
+
+      <div class="stat">
+        Modules à rattraper
+        <strong>{{ modulesARattraper.length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. MENTION AUTOMATIQUE : 5 BRANCHES -->
+  <div class="card">
+    <h2>Mention automatique</h2>
+
+    <p v-if="moyenneGenerale >= 16" class="mention success">
+      Très bien
+    </p>
+    <p v-else-if="moyenneGenerale >= 14" class="mention success">
+      Bien
+    </p>
+    <p v-else-if="moyenneGenerale >= 12" class="mention">
+      Assez bien
+    </p>
+    <p v-else-if="moyenneGenerale >= 10" class="mention">
+      Passable
+    </p>
+    <p v-else class="mention warning">
+      Insuffisant
+    </p>
+
+    <p v-if="tousValides()" class="success">
+      Tous les modules sont validés !
+    </p>
+    <p v-else class="warning">
+      Certains modules nécessitent un rattrapage.
+    </p>
+  </div>
+
+  <!-- 3. AJOUT D'UN MODULE -->
+  <div class="card">
+    <h2>Ajouter un module</h2>
+
+    <form @submit.prevent="ajouterModule">
+      <label>Nom du module</label>
+      <input
+        v-model.trim="nouveauModule.nom"
+        type="text"
+        placeholder="Ex. Programmation JavaScript"
+        required
+      >
+
+      <label>Note sur 20</label>
+      <input
+        v-model.number="nouveauModule.note"
+        type="number"
+        min="0"
+        max="20"
+        step="0.01"
+        required
+      >
+
+      <label>Coefficient</label>
+      <input
+        v-model.number="nouveauModule.coefficient"
+        type="number"
+        min="0.01"
+        step="0.01"
+        required
+      >
+
+      <button type="submit">Ajouter le module</button>
+    </form>
+  </div>
+
+  <!-- 4. RECHERCHE ET CLASSEMENT -->
+  <div class="card">
+    <h2>Liste des modules classés</h2>
+
+    <label>Rechercher un module</label>
+    <input
+      v-model="recherche"
+      type="text"
+      placeholder="Tapez le nom d'un module..."
+    >
+
+    <p>
+      Modules affichés : {{ modulesAffiches.length }}
+    </p>
+
+    <div
+      v-for="(module, index) in modulesAffiches"
+      :key="module.id"
+      class="module"
+    >
+      <h3>
+        {{ index + 1 }}. {{ module.nom }}
+      </h3>
+
+      <p>
+        Note :
+        <strong>{{ module.note }}/20</strong>
+      </p>
+
+      <p>
+        Coefficient : {{ module.coefficient }}
+      </p>
+
+      <p>
+        Points pondérés :
+        {{ (module.note * module.coefficient).toFixed(2) }}
+      </p>
+
+      <p
+        v-if="module.note < 10"
+        class="warning"
+      >
+        À rattraper
+      </p>
+
+      <p
+        v-else
+        class="success"
+      >
+        Module validé
+      </p>
+
+      <button @click="toggleDetail(module)">
+        {{ module.detailVisible ? 'Masquer le détail' : 'Voir le détail' }}
+      </button>
+
+      <button
+        class="danger"
+        @click="supprimerModule(module)"
+      >
+        Supprimer
+      </button>
+
+      <div v-show="module.detailVisible" class="details">
+        <h4>Détails du module</h4>
+        <p>Nom : {{ module.nom }}</p>
+        <p>Note : {{ module.note }}/20</p>
+        <p>Coefficient : {{ module.coefficient }}</p>
+        <p>
+          Contribution à la moyenne :
+          {{ (module.note * module.coefficient).toFixed(2) }}
+        </p>
+      </div>
+    </div>
+
+    <p v-if="modulesAffiches.length === 0" class="empty">
+      Aucun module trouvé.
+    </p>
+  </div>
+
+  <!-- 5. MODULES À RATTRAPER -->
+  <div class="card">
+    <h2>
+      Modules à rattraper
+      <span class="badge">{{ modulesARattraper.length }}</span>
+    </h2>
+
+    <div
+      v-for="module in modulesARattraper"
+      :key="module.id"
+      class="module"
+    >
+      <strong>{{ module.nom }}</strong>
+      <span class="warning">{{ module.note }}/20</span>
+    </div>
+
+    <p v-if="modulesARattraper.length === 0" class="success">
+      Aucun module à rattraper !
+    </p>
+  </div>
+
+  <!-- 6. MEILLEUR ET MOINS BON MODULE -->
+  <div class="card">
+    <h2>Meilleur module</h2>
+
+    <div v-if="moduleMax">
+      <p>{{ moduleMax.nom }}</p>
+      <p class="success">{{ moduleMax.note }}/20</p>
+    </div>
+
+    <p v-else class="empty">Aucun module disponible.</p>
+  </div>
+
+  <div class="card">
+    <h2>Module le moins bien noté</h2>
+
+    <div v-if="moduleMin">
+      <p>{{ moduleMin.nom }}</p>
+      <p class="warning">{{ moduleMin.note }}/20</p>
+    </div>
+
+    <p v-else class="empty">Aucun module disponible.</p>
+  </div>
+
+</div>
+
+<script>
+const app = Vue.createApp({
+  data() {
+    return {
+      recherche: "",
+
+      prochainId: 5,
+
+      nouveauModule: {
+        nom: "",
+        note: 0,
+        coefficient: 1
+      },
+
+      modules: [
+        {
+          id: 1,
+          nom: "JavaScript",
+          note: 16,
+          coefficient: 3,
+          detailVisible: false
+        },
+        {
+          id: 2,
+          nom: "Base de données",
+          note: 12,
+          coefficient: 2,
+          detailVisible: false
+        },
+        {
+          id: 3,
+          nom: "Réseaux",
+          note: 8,
+          coefficient: 2,
+          detailVisible: false
+        },
+        {
+          id: 4,
+          nom: "Développement web",
+          note: 14,
+          coefficient: 4,
+          detailVisible: false
+        }
+      ]
+    };
+  },
+
+  computed: {
+    // 1. MOYENNE GÉNÉRALE PONDÉRÉE
+    moyenneGenerale() {
+      const sommeCoefficients = this.modules.reduce(
+        (total, module) => total + module.coefficient,
+        0
+      );
+
+      const sommeNotesPonderees = this.modules.reduce(
+        (total, module) =>
+          total + module.note * module.coefficient,
+        0
+      );
+
+      if (sommeCoefficients === 0) {
+        return 0;
+      }
+
+      return Math.round(
+        (sommeNotesPonderees / sommeCoefficients) * 100
+      ) / 100;
+    },
+
+    // 2. MENTION AUTOMATIQUE
+    mention() {
+      if (this.moyenneGenerale >= 16) {
+        return "Très bien";
+      } else if (this.moyenneGenerale >= 14) {
+        return "Bien";
+      } else if (this.moyenneGenerale >= 12) {
+        return "Assez bien";
+      } else if (this.moyenneGenerale >= 10) {
+        return "Passable";
+      } else {
+        return "Insuffisant";
+      }
+    },
+
+    // 3. MODULES À RATTRAPER
+    modulesARattraper() {
+      return this.modules.filter(
+        module => module.note < 10
+      );
+    },
+
+    // 4. MODULES TRIÉS PAR NOTE DÉCROISSANTE
+    // On utilise une copie pour ne pas modifier this.modules.
+    modulesTries() {
+      return [...this.modules].sort(
+        (a, b) => b.note - a.note
+      );
+    },
+
+    // 5. RECHERCHE DANS LE CLASSEMENT
+    modulesAffiches() {
+      const texte = this.recherche.toLowerCase();
+
+      return this.modulesTries.filter(
+        module => module.nom.toLowerCase().includes(texte)
+      );
+    },
+
+    // 6. MEILLEUR MODULE
+    moduleMax() {
+      if (this.modulesTries.length === 0) {
+        return null;
+      }
+
+      return this.modulesTries[0];
+    },
+
+    // 7. MODULE LE MOINS BIEN NOTÉ
+    moduleMin() {
+      if (this.modulesTries.length === 0) {
+        return null;
+      }
+
+      return this.modulesTries[this.modulesTries.length - 1];
+    }
+  },
+
+  methods: {
+    // AJOUTER UN MODULE
+    ajouterModule() {
+      const nom = this.nouveauModule.nom.trim();
+      const note = Number(this.nouveauModule.note);
+      const coefficient = Number(this.nouveauModule.coefficient);
+
+      if (nom === "") {
+        alert("Veuillez saisir le nom du module.");
+        return;
+      }
+
+      if (!Number.isFinite(note) || note < 0 || note > 20) {
+        alert("La note doit être comprise entre 0 et 20.");
+        return;
+      }
+
+      if (!Number.isFinite(coefficient) || coefficient <= 0) {
+        alert("Le coefficient doit être supérieur à 0.");
+        return;
+      }
+
+      this.modules.push({
+        id: this.prochainId++,
+        nom: nom,
+        note: note,
+        coefficient: coefficient,
+        detailVisible: false
+      });
+
+      this.nouveauModule = {
+        nom: "",
+        note: 0,
+        coefficient: 1
+      };
+    },
+
+    // SUPPRIMER UN MODULE
+    supprimerModule(module) {
+      this.modules = this.modules.filter(
+        m => m.id !== module.id
+      );
+    },
+
+    // AFFICHER OU MASQUER LES DÉTAILS
+    toggleDetail(module) {
+      module.detailVisible = !module.detailVisible;
+    },
+
+    // VÉRIFIER SI TOUS LES MODULES SONT VALIDÉS
+    tousValides() {
+      return this.modules.every(
+        module => module.note >= 10
+      );
+    }
+  }
+});
+
+app.mount("#app");
+</script>
+</body>
+</html>
