@@ -1,0 +1,359 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Gestion des tâches - Vue.js 3</title>
+
+  <!-- Importation de Vue.js 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f4f8;
+      color: #333;
+      margin: 0;
+      padding: 30px 15px;
+    }
+
+    #app {
+      max-width: 850px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2563eb;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #667085;
+      margin-bottom: 30px;
+    }
+
+    /* Compteurs */
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .stat {
+      flex: 1;
+      min-width: 140px;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 2px 8px #0000000d;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 28px;
+      color: #2563eb;
+      margin-top: 10px;
+    }
+
+    /* Boutons de filtrage */
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      border: none;
+      padding: 11px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      background: #e5e7eb;
+      color: #333;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    .filter-btn.active {
+      background: #2563eb;
+      color: white;
+    }
+
+    /* Cartes des tâches */
+    .task {
+      background: white;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+      border-left: 5px solid #f59e0b;
+      box-shadow: 0 2px 8px #0000000d;
+    }
+
+    .task.completed {
+      border-left-color: #16a34a;
+    }
+
+    .task.completed h3 {
+      text-decoration: line-through;
+      color: #777;
+    }
+
+    .task h3 {
+      margin-top: 0;
+      color: #263445;
+    }
+
+    .status {
+      font-weight: bold;
+    }
+
+    .done {
+      color: #16a34a;
+    }
+
+    .todo {
+      color: #dc2626;
+    }
+
+    .complete-btn {
+      background: #16a34a;
+      color: white;
+      margin-top: 5px;
+    }
+
+    .empty {
+      background: white;
+      padding: 25px;
+      text-align: center;
+      border-radius: 10px;
+      color: #667085;
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #b91c1c;
+      padding: 15px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app">
+
+    <h1>Ma liste de tâches</h1>
+
+    <p class="subtitle">
+      Application de gestion des tâches avec Vue.js 3
+    </p>
+
+    <!-- COMPTEURS -->
+    <div class="stats">
+
+      <div class="stat">
+        Total des tâches
+        <strong>{{ totalTaches }}</strong>
+      </div>
+
+      <div class="stat">
+        Tâches à faire
+        <strong>{{ tachesAFaire }}</strong>
+      </div>
+
+      <div class="stat">
+        Tâches terminées
+        <strong>{{ tachesTerminees }}</strong>
+      </div>
+
+    </div>
+
+    <!-- FILTRES -->
+    <div class="filters">
+
+      <button
+        class="filter-btn"
+        :class="{ active: filtre === 'toutes' }"
+        @click="changerFiltre('toutes')"
+      >
+        Toutes les tâches
+      </button>
+
+      <button
+        class="filter-btn"
+        :class="{ active: filtre === 'aFaire' }"
+        @click="changerFiltre('aFaire')"
+      >
+        À faire
+      </button>
+
+      <button
+        class="filter-btn"
+        :class="{ active: filtre === 'terminees' }"
+        @click="changerFiltre('terminees')"
+      >
+        Terminées
+      </button>
+
+    </div>
+
+    <!-- MESSAGE D'ERREUR -->
+    <p v-if="erreur" class="error">
+      {{ erreur }}
+    </p>
+
+    <!-- AFFICHAGE DES TÂCHES -->
+    <div
+      v-for="tache in tachesFiltrees"
+      :key="tache.id"
+      class="task"
+      :class="{ completed: tache.completed }"
+    >
+
+      <h3>{{ tache.title }}</h3>
+
+      <p>{{ tache.description }}</p>
+
+      <p
+        class="status"
+        :class="tache.completed ? 'done' : 'todo'"
+      >
+        {{ tache.completed ? 'Terminée' : 'À faire' }}
+      </p>
+
+      <!-- Visible uniquement si la tâche n'est pas terminée -->
+      <button
+        v-show="!tache.completed"
+        class="complete-btn"
+        @click="terminerTache(tache)"
+      >
+        Marquer comme terminée
+      </button>
+
+    </div>
+
+    <!-- MESSAGE SI AUCUNE TÂCHE -->
+    <div
+      v-if="tachesFiltrees.length === 0 && !erreur"
+      class="empty"
+    >
+      Aucune tâche à afficher.
+    </div>
+
+  </div>
+
+  <script>
+    const TaskList = {
+      data() {
+        return {
+          taches: [],
+          filtre: "toutes",
+          erreur: ""
+        };
+      },
+
+      computed: {
+
+        // Nombre total de tâches
+        totalTaches() {
+          return this.taches.length;
+        },
+
+        // Nombre de tâches terminées
+        tachesTerminees() {
+          return this.taches.filter(
+            tache => tache.completed
+          ).length;
+        },
+
+        // Nombre de tâches non terminées
+        tachesAFaire() {
+          return this.taches.filter(
+            tache => !tache.completed
+          ).length;
+        },
+
+        // Filtrage des tâches
+        tachesFiltrees() {
+          if (this.filtre === "aFaire") {
+            return this.taches.filter(
+              tache => !tache.completed
+            );
+          } else if (this.filtre === "terminees") {
+            return this.taches.filter(
+              tache => tache.completed
+            );
+          } else {
+            return this.taches;
+          }
+        }
+
+      },
+
+      methods: {
+
+        // Changer le filtre sélectionné
+        changerFiltre(nouveauFiltre) {
+          this.filtre = nouveauFiltre;
+        },
+
+        // Marquer une tâche comme terminée
+        terminerTache(tache) {
+          tache.completed = true;
+        },
+
+        // Charger les tâches depuis tasks.json
+        async chargerTaches() {
+          try {
+            const reponse = await fetch("./taskList.json");
+
+            if (!reponse.ok) {
+              throw new Error("Erreur HTTP : " + reponse.status);
+            }
+
+            this.taches = await reponse.json();
+            this.erreur = "";
+
+          } catch (error) {
+            console.error(
+              "Erreur lors du chargement des tâches :",
+              error
+            );
+
+            this.erreur =
+              "Impossible de charger tasks.json. " +
+              "Vérifiez le fichier et lancez le projet avec Live Server.";
+          }
+        }
+
+      },
+
+      // Exécuté lorsque le composant est monté
+      mounted() {
+        this.chargerTaches();
+      }
+    };
+
+    // Création de l'application Vue
+    const app = Vue.createApp(TaskList);
+
+    // Montage de l'application
+    app.mount("#app");
+  </script>
+
+</body>
+</html>
+
