@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TP2 - Formulaire du catalogue</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 0 16px;
+      color: #1b2430;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+      margin: 24px 0;
+      padding: 18px;
+      border: 1px solid #dde1d9;
+      border-radius: 8px;
+    }
+
+    label {
+      display: grid;
+      gap: 4px;
+    }
+
+    label.checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input,
+    select,
+    button {
+      font: inherit;
+    }
+
+    .book {
+      border: 1px solid #dde1d9;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+
+    .favori {
+      border-color: #caa53d;
+      background: #fbf6e6;
+    }
+
+    .badge-favori {
+      display: inline-block;
+      background: #caa53d;
+      color: white;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin: 4px 4px 4px 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e8edf5;
+      font-size: 0.9rem;
+    }
+
+    .chip button {
+      border: 0;
+      padding: 0 2px;
+      background: transparent;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <p>{{ nombreFavoris }} livre(s) favori(s)</p>
+
+    <h1>Catalogue de livres</h1>
+    <button type="button" @click="showOnlyFavorites = !showOnlyFavorites">
+      {{ showOnlyFavorites ? 'Afficher tous les livres' : 'Afficher uniquement les favoris' }}
+    </button>
+
+    <h2>Ajouter un livre</h2>
+    <form @submit.prevent="ajouterLivre">
+      <label>
+        Titre
+        <input v-model.trim="newBook.title" type="text" required>
+      </label>
+
+      <label>
+        Auteur
+        <input v-model.lazy="newBook.author" type="text" required>
+      </label>
+
+      <label>
+        Année
+        <input v-model.number="newBook.year" type="number" min="0">
+      </label>
+
+      <label>
+        Genre
+        <select v-model="newBook.genre">
+          <option value="">Choisir un genre</option>
+          <option>Génie logiciel</option>
+          <option>Algorithmique</option>
+          <option>Littérature</option>
+          <option>Réseaux</option>
+          <option>Développement web</option>
+          <option>Autre</option>
+        </select>
+      </label>
+
+      <label class="checkbox">
+        <input v-model="newBook.isFav" type="checkbox">
+        Favori
+      </label>
+
+      <label>
+        Mot-clé
+        <input
+          v-model.trim="nouveauMotCle"
+          type="text"
+          placeholder="Saisir puis appuyer sur Entrée"
+          @keydown.enter.prevent
+          @keyup.enter="ajouterMotCle"
+        >
+      </label>
+      <div v-if="newBook.keywords.length" aria-label="Mots-clés du nouveau livre">
+        <span v-for="motCle in newBook.keywords" :key="motCle" class="chip">
+          {{ motCle }}
+          <button type="button" :aria-label="'Retirer ' + motCle" @click="retirerMotCle(motCle)">×</button>
+        </span>
+      </div>
+
+      <button type="submit" :disabled="!formulaireValide">Ajouter</button>
+    </form>
+
+    <p v-if="displayedBooks.length === 0">Aucun livre à afficher.</p>
+    <article
+      v-for="book in displayedBooks"
+      :key="book.id"
+      class="book"
+      :class="{ favori: book.isFav }"
+      @click="toggleFavori(book)"
+    >
+      <h3>
+        {{ book.title }}
+        <span v-if="book.isFav" class="badge-favori">Favori</span>
+      </h3>
+      <p>Auteur : {{ book.author }}</p>
+      <p>Année : {{ book.year }}</p>
+      <div v-if="book.keywords && book.keywords.length">
+        <span v-for="motCle in book.keywords" :key="motCle" class="chip">{{ motCle }}</span>
+      </div>
+      <button type="button" @click.stop="book.showDetails = !book.showDetails">Détails</button>
+      <p v-if="book.showDetails">Genre : {{ book.genre }}</p>
+      <button type="button" @click.stop="supprimerLivre(book)">Supprimer</button>
+    </article>
+  </main>
+
+  <script>
+    const livres = [
+      { id: 1, title: 'Clean Code', author: 'Robert C. Martin', year: 2008, genre: 'Génie logiciel', isFav: true, keywords: [] },
+      { id: 2, title: 'Introduction to Algorithms', author: 'Cormen, Leiserson, Rivest, Stein', year: 2009, genre: 'Algorithmique', isFav: false, keywords: [] },
+      { id: 3, title: 'Design Patterns', author: 'Gamma, Helm, Johnson, Vlissides', year: 1994, genre: 'Génie logiciel', isFav: true, keywords: [] },
+      { id: 4, title: 'Le Petit Prince', author: 'Antoine de Saint-Exupéry', year: 1943, genre: 'Littérature', isFav: false, keywords: [] },
+      { id: 5, title: 'Computer Networks', author: 'Andrew S. Tanenbaum', year: 2010, genre: 'Réseaux', isFav: false, keywords: [] },
+      { id: 6, title: "You Don't Know JS", author: 'Kyle Simpson', year: 2015, genre: 'Développement web', isFav: true, keywords: [] }
+    ];
+
+    const nouveauLivre = () => ({
+      title: '',
+      author: '',
+      year: new Date().getFullYear(),
+      genre: '',
+      isFav: false,
+      keywords: []
+    });
+
+    Vue.createApp({
+      data() {
+        return {
+          books: livres,
+          newBook: nouveauLivre(),
+          nouveauMotCle: '',
+          showOnlyFavorites: false
+        };
+      },
+      computed: {
+        nombreFavoris() {
+          return this.books.filter(book => book.isFav).length;
+        },
+        displayedBooks() {
+          return this.showOnlyFavorites
+            ? this.books.filter(book => book.isFav)
+            : this.books;
+        },
+        formulaireValide() {
+          return this.newBook.title.trim() !== '' && this.newBook.author.trim() !== '';
+        }
+      },
+      methods: {
+        ajouterLivre() {
+          if (!this.formulaireValide) {
+            return;
+          }
+          const id = Math.max(0, ...this.books.map(book => book.id)) + 1;
+          this.books.push({ ...this.newBook, id, keywords: [...this.newBook.keywords] });
+          this.newBook = nouveauLivre();
+          this.nouveauMotCle = '';
+        },
+        supprimerLivre(book) {
+          this.books = this.books.filter(livre => livre.id !== book.id);
+        },
+        toggleFavori(book) {
+          book.isFav = !book.isFav;
+        },
+        ajouterMotCle() {
+          const motCle = this.nouveauMotCle.trim();
+          if (motCle && !this.newBook.keywords.includes(motCle)) {
+            this.newBook.keywords.push(motCle);
+          }
+          this.nouveauMotCle = '';
+        },
+        retirerMotCle(motCle) {
+          this.newBook.keywords = this.newBook.keywords.filter(mot => mot !== motCle);
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

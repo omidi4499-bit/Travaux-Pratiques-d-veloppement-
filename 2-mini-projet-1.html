@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des personnes</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+
+        fieldset {
+            margin-bottom: 1rem;
+        }
+
+        input[type="checkbox"],
+        select {
+            margin-right: 1rem;
+        }
+
+        .personne {
+            display: flow-root;
+            padding: 1rem;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .personne img {
+            float: left;
+            height: auto;
+            margin-right: 1rem;
+        }
+
+        .misEnForme {
+            background: #e0ffff;
+            font-family: Georgia, serif;
+            font-size: 1.2rem;
+            margin: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <fieldset>
+            <legend>Filtre sur le nom</legend>
+            <label>
+                Nom :
+                <input type="search" v-model.trim="filtreNom" placeholder="Rechercher un nom">
+            </label>
+        </fieldset>
+
+        <fieldset>
+            <legend>Options</legend>
+            <label>Homme <input type="checkbox" v-model="homme"></label>
+            <label>Femme <input type="checkbox" v-model="femme"></label>
+            <label>
+                Afficher les contacts (téléphone et email)
+                <input type="checkbox" v-model="contactsVisibles">
+            </label>
+            <label>
+                Photo
+                <select v-model.number="taille">
+                    <option :value="1">Petite</option>
+                    <option :value="2">Moyenne</option>
+                    <option :value="3">Grande</option>
+                </select>
+            </label>
+            <label>Mise en forme <input type="checkbox" v-model="mef"></label>
+        </fieldset>
+
+        <p v-if="chargement" role="status">Chargement des personnes...</p>
+        <p v-else-if="erreur" role="alert">{{ erreur }}</p>
+        <p v-else-if="personnesFiltrees.length === 0">Aucune personne trouvée.</p>
+
+        <article v-for="p in personnesFiltrees" :key="p.email"
+            class="personne" :class="{ misEnForme: mef }">
+            <img :src="photo(p)" :alt="'Photo de ' + p.name.first + ' ' + p.name.last"
+                :width="largeurPhoto">
+            <strong>{{ p.name.first }} {{ p.name.last }}</strong><br>
+            <span>{{ p.location.country }}</span>
+            <div v-if="contactsVisibles">
+                <div>Téléphone : {{ p.phone }}</div>
+                <div>Email : <a :href="'mailto:' + p.email">{{ p.email }}</a></div>
+            </div>
+            <div v-else>Informations de contact masquées</div>
+        </article>
+    </div>
+
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    homme: true,
+                    femme: true,
+                    contactsVisibles: false,
+                    mef: false,
+                    taille: 2,
+                    filtreNom: '',
+                    personnes: [],
+                    chargement: true,
+                    erreur: ''
+                };
+            },
+            computed: {
+                largeurPhoto() {
+                    return [48, 96, 160][this.taille - 1];
+                },
+                personnesFiltrees() {
+                    const nomRecherche = this.filtreNom.toLocaleLowerCase();
+                    return this.personnes.filter((personne) => {
+                        const genreSelectionne = personne.gender === 'male'
+                            ? this.homme
+                            : personne.gender === 'female' && this.femme;
+                        const nomComplet = `${personne.name.first} ${personne.name.last}`
+                            .toLocaleLowerCase();
+                        return genreSelectionne && nomComplet.includes(nomRecherche);
+                    });
+                }
+            },
+            methods: {
+                photo(personne) {
+                    return [
+                        personne.picture.thumbnail,
+                        personne.picture.medium,
+                        personne.picture.large
+                    ][this.taille - 1];
+                }
+            },
+            async mounted() {
+                try {
+                    const reponse = await fetch('./personnes.json');
+                    if (!reponse.ok) {
+                        throw new Error(`Erreur HTTP ${reponse.status}`);
+                    }
+                    this.personnes = await reponse.json();
+                } catch (erreur) {
+                    this.erreur = `Impossible de charger personnes.json : ${erreur.message}`;
+                } finally {
+                    this.chargement = false;
+                }
+            }
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+
+</html>
